@@ -1,0 +1,50 @@
+name: Consumer smoke
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  immutable-tag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Audit with v1.1.0
+        id: audit
+        uses: PredictabilityAtScale/usagetap-model-lifecycle-action@v1.1.0
+        with:
+          paths: .
+          models: openai/gpt-4-turbo
+          minimum-models: 1
+          fail-on: never
+          unknown-policy: ignore
+          api-error-policy: error
+      - name: Verify v1.1.0 outputs
+        env:
+          MODELS_FOUND: ${{ steps.audit.outputs.models-found }}
+          RESULTS_JSON: ${{ steps.audit.outputs.results-json }}
+        run: |
+          node -e 'const rows=JSON.parse(process.env.RESULTS_JSON); if (process.env.MODELS_FOUND!=="1" || !rows.some((row)=>row.modelKey==="openai/gpt-4-turbo")) throw new Error("v1.1.0 smoke assertion failed")'
+
+  moving-major-tag:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Audit with v1
+        id: audit
+        uses: PredictabilityAtScale/usagetap-model-lifecycle-action@v1
+        with:
+          paths: .
+          models: openai/gpt-4-turbo
+          minimum-models: 1
+          fail-on: never
+          unknown-policy: ignore
+          api-error-policy: error
+      - name: Verify v1 outputs
+        env:
+          MODELS_FOUND: ${{ steps.audit.outputs.models-found }}
+          RESULTS_JSON: ${{ steps.audit.outputs.results-json }}
+        run: |
+          node -e 'const rows=JSON.parse(process.env.RESULTS_JSON); if (process.env.MODELS_FOUND!=="1" || !rows.some((row)=>row.modelKey==="openai/gpt-4-turbo")) throw new Error("v1 smoke assertion failed")'
